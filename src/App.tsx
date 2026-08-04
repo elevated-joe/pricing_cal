@@ -16,6 +16,7 @@ import { InputsPanel } from "./components/InputsPanel";
 import { PlanCards } from "./components/PlanCards";
 import { LineItemTable } from "./components/LineItemTable";
 import { CatalogEditor } from "./components/CatalogEditor";
+import { ExportPlan } from "./components/ExportPlan";
 
 function Section({
   title,
@@ -43,6 +44,7 @@ export default function App() {
   const [inputs, setInputs] = useState<PricingInputs>(DEFAULT_INPUTS);
   const [catalog, setCatalogState] = useState<Catalog>(() => loadCatalog());
   const [showEditor, setShowEditor] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const result = useMemo(() => calculatePricing(inputs, catalog), [inputs, catalog]);
 
   const patch = (p: Partial<PricingInputs>) => setInputs((prev) => ({ ...prev, ...p }));
@@ -81,15 +83,24 @@ export default function App() {
             {inputs.travelRequired ? "with travel" : "no travel"}
           </p>
         </div>
-        <button
-          type="button"
-          className={`btn edit-toggle ${showEditor ? "active" : ""}`}
-          onClick={() => setShowEditor((v) => !v)}
-        >
-          {showEditor ? "Close editor" : "Edit catalog"}
-          {catalogModified && <span className="dot" title="Catalog edited" />}
-        </button>
+        <div className="header-actions">
+          <button type="button" className="btn primary" onClick={() => setShowExport(true)}>
+            Export support plan
+          </button>
+          <button
+            type="button"
+            className={`btn edit-toggle ${showEditor ? "active" : ""}`}
+            onClick={() => setShowEditor((v) => !v)}
+          >
+            {showEditor ? "Close editor" : "Edit catalog"}
+            {catalogModified && <span className="dot" title="Catalog edited" />}
+          </button>
+        </div>
       </header>
+
+      {showExport && (
+        <ExportPlan plans={result.plans} users={inputs.users} onClose={() => setShowExport(false)} />
+      )}
 
       {showEditor && (
         <section className="editor-panel">
