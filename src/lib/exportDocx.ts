@@ -226,6 +226,68 @@ function removeColumns(table: Element, removeIdx: number[]): void {
   }
 }
 
+/** An empty ballot-box (☐) run, bold and slightly enlarged for print/PDF. */
+function checkboxRun(doc: Document): Element {
+  const r = doc.createElementNS(W, "w:r");
+  const rpr = doc.createElementNS(W, "w:rPr");
+  rpr.appendChild(doc.createElementNS(W, "w:b"));
+  for (const tag of ["w:sz", "w:szCs"]) {
+    const el = doc.createElementNS(W, tag);
+    el.setAttributeNS(W, "w:val", "28"); // 14pt
+    rpr.appendChild(el);
+  }
+  r.appendChild(rpr);
+  const t = doc.createElementNS(W, "w:t");
+  t.textContent = "☐"; // ☐ BALLOT BOX
+  r.appendChild(t);
+  return r;
+}
+
+/** Replace a cell's content with a single centered checkbox. */
+function setCellCheckbox(doc: Document, tc: Element): void {
+  const p = els(tc, "p")[0];
+  if (!p) return;
+  for (const r of els(p, "r")) if (r.parentNode === p) p.removeChild(r);
+  let pPr = els(p, "pPr")[0];
+  if (!pPr) {
+    pPr = doc.createElementNS(W, "w:pPr");
+    p.insertBefore(pPr, p.firstChild);
+  }
+  if (!els(pPr, "jc")[0]) {
+    const jc = doc.createElementNS(W, "w:jc");
+    jc.setAttributeNS(W, "w:val", "center");
+    pPr.appendChild(jc);
+  }
+  p.appendChild(checkboxRun(doc));
+}
+
+/**
+ * Add selection checkboxes for the PDF: one under each plan column in the
+ * pricing table's "Initial Plan selection" row, and one on the "TIME AND
+ * MATERIALS" header — so the recipient can tick a POM plan or T&M.
+ * Runs before column removal so dropped plans lose their checkbox too.
+ */
+function addSelectionCheckboxes(doc: Document): void {
+  for (const table of els(doc, "tbl")) {
+    if (isPlanTable(table)) {
+      for (const row of els(table, "tr")) {
+        const cells = rowCells(row);
+        if (cells.length >= 5 && textOf(cells[0]).toLowerCase().includes("initial plan selection")) {
+          for (let i = 1; i <= 4; i++) setCellCheckbox(doc, cells[i]);
+        }
+      }
+    } else {
+      const first = els(table, "tc")[0];
+      if (first && textOf(first).trim().toUpperCase().startsWith("TIME AND MATERIALS")) {
+        const t = els(first, "t")[0];
+        if (t && !(t.textContent ?? "").startsWith("☐")) {
+          t.textContent = `☐ ${t.textContent ?? ""}`;
+        }
+      }
+    }
+  }
+}
+
 function formatDate(yyyyMmDd: string): string {
   if (!yyyyMmDd) return "";
   const d = new Date(`${yyyyMmDd}T00:00:00`);
@@ -265,7 +327,10 @@ export async function generateSupportPlan(
     "NUMBER OF USERS": String(users),
   });
 
-  // 3) Remove unselected plan columns from every plan table.
+  // 3) Add POM/T&M selection checkboxes (before column removal).
+  addSelectionCheckboxes(doc);
+
+  // 4) Remove unselected plan columns from every plan table.
   const removeIdx = PLAN_COLUMNS.map((c, i) => (meta.selectedPlans.includes(c.key) ? -1 : i + 1)).filter(
     (i) => i > 0,
   );
