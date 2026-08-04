@@ -202,3 +202,21 @@ export const PLANS: PlanDef[] = [
   { key: "standard", label: "Standard", laborTier: "standardEnterprise", includeHaaS: false },
   { key: "enterprise", label: "Enterprise (HaaS)", laborTier: "standardEnterprise", includeHaaS: true },
 ];
+
+/**
+ * The editable portion of the catalog — the item lists the pricing engine reads.
+ * The frontend can edit a copy of this (costs, add/remove items) and export an
+ * updated catalog.ts to commit. Types/constants/plans above stay code.
+ */
+export interface Catalog {
+  hardware: HardwareItem[];
+  tools: ToolItem[];
+  labor: LaborTier[];
+}
+
+/** Built-in defaults, ported from the source spreadsheet. */
+export const DEFAULT_CATALOG: Catalog = {
+  hardware: HARDWARE,
+  tools: TOOLS,
+  labor: LABOR,
+};

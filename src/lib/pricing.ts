@@ -8,14 +8,14 @@
 import {
   CONSTANTS,
   DATTO_OPTIONS,
-  HARDWARE,
-  LABOR,
+  DEFAULT_CATALOG,
   O365_SEAT_COST,
   PLANS,
-  TOOLS,
+  type Catalog,
   type HardwareItem,
   type LaborItem,
   type LaborTier,
+  type ToolItem,
 } from "./catalog";
 
 export interface PricingInputs {
@@ -139,11 +139,12 @@ function hardwareUnitCount(item: HardwareItem, deviceCount: number, locations: n
 }
 
 function computeHardware(
+  hardware: HardwareItem[],
   deviceCount: number,
   locations: number,
   overrides: Record<string, number>,
 ): HaaSResult {
-  const lines: LineItem[] = HARDWARE.map((item) => {
+  const lines: LineItem[] = hardware.map((item) => {
     const defaultUnit = hardwareUnitCount(item, deviceCount, locations);
     const override = overrides[item.key];
     const isOverridden = typeof override === "number" && Number.isFinite(override);
@@ -177,8 +178,8 @@ function computeHardware(
   };
 }
 
-function computeTools(inputs: PricingInputs, deviceCount: number): Section {
-  const lines: LineItem[] = TOOLS.map((item) => {
+function computeTools(tools: ToolItem[], inputs: PricingInputs, deviceCount: number): Section {
+  const lines: LineItem[] = tools.map((item) => {
     let unit: number;
     switch (item.unit.base) {
       case "devices":
@@ -212,8 +213,12 @@ function laborLineMonthly(item: LaborItem, deviceCount: number): LineItem {
   };
 }
 
-function computeLabor(travelRequired: boolean, deviceCount: number): LaborTierResult[] {
-  return LABOR.map((tier) => {
+function computeLabor(
+  labor: LaborTier[],
+  travelRequired: boolean,
+  deviceCount: number,
+): LaborTierResult[] {
+  return labor.map((tier) => {
     const items = travelRequired ? tier.travel : tier.noTravel;
     const lines = items.map((i) => laborLineMonthly(i, deviceCount));
     return {
@@ -229,13 +234,21 @@ function sum(xs: number[]): number {
   return xs.reduce((a, b) => a + b, 0);
 }
 
-export function calculatePricing(inputs: PricingInputs): PricingResult {
+export function calculatePricing(
+  inputs: PricingInputs,
+  catalog: Catalog = DEFAULT_CATALOG,
+): PricingResult {
   // Exact device count (users × multiplier). Rounded only for display.
   const deviceCount = inputs.users * inputs.deviceMultiplier;
 
-  const hardware = computeHardware(deviceCount, inputs.locations, inputs.hardwareUnitOverrides);
-  const tools = computeTools(inputs, deviceCount);
-  const labor = computeLabor(inputs.travelRequired, deviceCount);
+  const hardware = computeHardware(
+    catalog.hardware,
+    deviceCount,
+    inputs.locations,
+    inputs.hardwareUnitOverrides,
+  );
+  const tools = computeTools(catalog.tools, inputs, deviceCount);
+  const labor = computeLabor(catalog.labor, inputs.travelRequired, deviceCount);
 
   // --- ORR: O365 + Datto ---
   const o365Seats = inputs.o365Seats;

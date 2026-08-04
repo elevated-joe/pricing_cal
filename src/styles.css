@@ -433,6 +433,194 @@ body {
   background: var(--accent-soft);
 }
 
+/* ---- Buttons ---- */
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn.primary:hover {
+  color: #fff;
+  filter: brightness(1.06);
+}
+
+.btn.add {
+  padding: 6px 12px;
+  font-size: 12px;
+  margin: 4px 0 8px;
+}
+
+.edit-toggle {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.edit-toggle .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---- Catalog editor ---- */
+.editor-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.editor-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.editor-h {
+  margin: 20px 0 6px;
+  font-size: 14px;
+}
+
+.edit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.edit-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.edit-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.edit-table .num {
+  text-align: right;
+}
+
+.cell-text,
+.cell-num,
+.cell-select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  padding: 5px 7px;
+}
+
+.cell-text {
+  width: 100%;
+  min-width: 160px;
+}
+
+.cell-num {
+  width: 84px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.cell-select {
+  min-width: 118px;
+}
+
+.cell-text:focus,
+.cell-num:focus,
+.cell-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.cell-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.row-del {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.row-del:hover {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.1);
+}
+
+.labor-edit-tier {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.labor-edit-tier h5 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.labor-edit-sub {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 8px 0 2px;
+}
+
 .app-footer {
   margin-top: 32px;
   padding-top: 16px;

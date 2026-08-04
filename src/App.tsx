@@ -1,10 +1,21 @@
 import { useMemo, useState } from "react";
 import { calculatePricing, DEFAULT_INPUTS, type PricingInputs } from "./lib/pricing";
+import { DEFAULT_CATALOG, type Catalog } from "./lib/catalog";
+import {
+  cloneCatalog,
+  clearStoredCatalog,
+  downloadText,
+  isModified,
+  loadCatalog,
+  saveCatalog,
+  serializeCatalogTs,
+} from "./lib/catalogStore";
 import { money } from "./lib/format";
 import { FEATURES } from "./lib/features";
 import { InputsPanel } from "./components/InputsPanel";
 import { PlanCards } from "./components/PlanCards";
 import { LineItemTable } from "./components/LineItemTable";
+import { CatalogEditor } from "./components/CatalogEditor";
 
 function Section({
   title,
@@ -30,9 +41,25 @@ function Section({
 
 export default function App() {
   const [inputs, setInputs] = useState<PricingInputs>(DEFAULT_INPUTS);
-  const result = useMemo(() => calculatePricing(inputs), [inputs]);
+  const [catalog, setCatalogState] = useState<Catalog>(() => loadCatalog());
+  const [showEditor, setShowEditor] = useState(false);
+  const result = useMemo(() => calculatePricing(inputs, catalog), [inputs, catalog]);
 
   const patch = (p: Partial<PricingInputs>) => setInputs((prev) => ({ ...prev, ...p }));
+
+  const setCatalog = (next: Catalog) => {
+    setCatalogState(next);
+    saveCatalog(next);
+  };
+
+  const resetCatalog = () => {
+    clearStoredCatalog();
+    setCatalogState(cloneCatalog(DEFAULT_CATALOG));
+  };
+
+  const exportCatalog = () => downloadText("catalog.ts", serializeCatalogTs(catalog));
+
+  const catalogModified = isModified(catalog);
 
   const setUnitOverride = (key: string, value: number | null) =>
     setInputs((prev) => {
@@ -54,7 +81,28 @@ export default function App() {
             {inputs.travelRequired ? "with travel" : "no travel"}
           </p>
         </div>
+        <button
+          type="button"
+          className={`btn edit-toggle ${showEditor ? "active" : ""}`}
+          onClick={() => setShowEditor((v) => !v)}
+        >
+          {showEditor ? "Close editor" : "Edit catalog"}
+          {catalogModified && <span className="dot" title="Catalog edited" />}
+        </button>
       </header>
+
+      {showEditor && (
+        <section className="editor-panel">
+          <h2 className="content-title">Edit catalog — costs &amp; items</h2>
+          <CatalogEditor
+            catalog={catalog}
+            onChange={setCatalog}
+            onExport={exportCatalog}
+            onReset={resetCatalog}
+            modified={catalogModified}
+          />
+        </section>
+      )}
 
       <div className="layout">
         <aside className="sidebar">
@@ -131,8 +179,8 @@ export default function App() {
       </div>
 
       <footer className="app-footer">
-        Built from the Pricing_Calc 2026 template. Edit rates in{" "}
-        <code>src/lib/catalog.ts</code>.
+        Built from the Pricing_Calc 2026 template. Edit costs &amp; items with{" "}
+        <strong>Edit catalog</strong>, then export &amp; commit <code>src/lib/catalog.ts</code>.
       </footer>
     </div>
   );
