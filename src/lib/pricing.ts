@@ -38,7 +38,7 @@ export const DEFAULT_INPUTS: PricingInputs = {
   locations: 1,
   travelRequired: false,
   deviceMultiplier: 1.25,
-  o365Seats: 25,
+  o365Seats: 0,
   dattoOption: "none",
 };
 
