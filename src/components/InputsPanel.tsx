@@ -1,5 +1,6 @@
 import type { PricingInputs } from "../lib/pricing";
 import { DATTO_OPTIONS } from "../lib/catalog";
+import { FEATURES } from "../lib/features";
 
 interface Props {
   inputs: PricingInputs;
@@ -45,25 +46,29 @@ export function InputsPanel({ inputs, onChange, onReset }: Props) {
         <small>Devices = users × multiplier</small>
       </div>
 
-      <div className="field">
-        <label htmlFor="o365">O365 E3 Seats</label>
-        <input id="o365" type="number" min={0} value={inputs.o365Seats} onChange={num("o365Seats")} />
-      </div>
+      {FEATURES.orr && (
+        <>
+          <div className="field">
+            <label htmlFor="o365">O365 E3 Seats</label>
+            <input id="o365" type="number" min={0} value={inputs.o365Seats} onChange={num("o365Seats")} />
+          </div>
 
-      <div className="field">
-        <label htmlFor="datto">Datto Backup</label>
-        <select
-          id="datto"
-          value={inputs.dattoOption}
-          onChange={(e) => onChange({ dattoOption: e.target.value })}
-        >
-          {DATTO_OPTIONS.map((d) => (
-            <option key={d.key} value={d.key}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-      </div>
+          <div className="field">
+            <label htmlFor="datto">Datto Backup</label>
+            <select
+              id="datto"
+              value={inputs.dattoOption}
+              onChange={(e) => onChange({ dattoOption: e.target.value })}
+            >
+              {DATTO_OPTIONS.map((d) => (
+                <option key={d.key} value={d.key}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
 
       <div className="field checkbox">
         <label htmlFor="travel">

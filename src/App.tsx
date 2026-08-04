@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { calculatePricing, DEFAULT_INPUTS, type PricingInputs } from "./lib/pricing";
 import { money } from "./lib/format";
+import { FEATURES } from "./lib/features";
 import { InputsPanel } from "./components/InputsPanel";
 import { PlanCards } from "./components/PlanCards";
 import { LineItemTable } from "./components/LineItemTable";
@@ -106,9 +107,11 @@ export default function App() {
               ))}
             </Section>
 
-            <Section title="O365 / Datto (ORR)" subtitle="Pass-through recurring">
-              <LineItemTable lines={[result.orr.o365, result.orr.datto]} />
-            </Section>
+            {FEATURES.orr && (
+              <Section title="O365 / Datto (ORR)" subtitle="Pass-through recurring">
+                <LineItemTable lines={[result.orr.o365, result.orr.datto]} />
+              </Section>
+            )}
           </section>
         </main>
       </div>
