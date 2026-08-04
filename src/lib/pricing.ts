@@ -109,6 +109,9 @@ const gm = (extCost: number, extPrice: number): number | null =>
 /** Quantities are always whole units — you can't buy a fraction of a device or bill a fractional hour. */
 const roundUnit = (n: number): number => Math.round(n);
 
+/** Quoted prices are rounded to the nearest whole dollar. Costs stay exact. */
+const roundPrice = (n: number): number => Math.round(n);
+
 function hardwareUnitCount(item: HardwareItem, deviceCount: number, locations: number): number {
   switch (item.unit.base) {
     case "locations":
@@ -124,10 +127,11 @@ function computeHardware(deviceCount: number, locations: number): HaaSResult {
   const lines: LineItem[] = HARDWARE.map((item) => {
     const unit = hardwareUnitCount(item, deviceCount, locations);
     const extCost = item.cost * unit;
-    const extPrice =
+    const extPrice = roundPrice(
       item.priceRule === "lab"
         ? unit * CONSTANTS.LAB_UNIT_PRICE
-        : extCost * CONSTANTS.HARDWARE_PRICE_MULT;
+        : extCost * CONSTANTS.HARDWARE_PRICE_MULT,
+    );
     return { label: item.label, unit, unitCost: item.cost, extCost, extPrice, gm: gm(extCost, extPrice) };
   });
   const extCost = sum(lines.map((l) => l.extCost));
@@ -137,7 +141,7 @@ function computeHardware(deviceCount: number, locations: number): HaaSResult {
     extCost,
     extPrice,
     monthlyCost: extCost / CONSTANTS.HAAS_MONTHS,
-    monthlyPrice: (extPrice / CONSTANTS.HAAS_MONTHS) * CONSTANTS.HAAS_MONTHLY_PRICE_MULT,
+    monthlyPrice: roundPrice((extPrice / CONSTANTS.HAAS_MONTHS) * CONSTANTS.HAAS_MONTHLY_PRICE_MULT),
   };
 }
 
@@ -206,7 +210,7 @@ export function calculatePricing(inputs: PricingInputs): PricingResult {
   // --- ORR: O365 + Datto ---
   const o365Seats = roundUnit(inputs.o365Seats);
   const o365ExtCost = O365_SEAT_COST * o365Seats;
-  const o365ExtPrice = o365ExtCost * CONSTANTS.O365_PRICE_MULT;
+  const o365ExtPrice = roundPrice(o365ExtCost * CONSTANTS.O365_PRICE_MULT);
   const o365: LineItem = {
     label: "Office e3 Seat + Teams",
     unit: o365Seats,
@@ -217,7 +221,7 @@ export function calculatePricing(inputs: PricingInputs): PricingResult {
   };
 
   const dattoOpt = DATTO_OPTIONS.find((d) => d.key === inputs.dattoOption) ?? DATTO_OPTIONS[0];
-  const dattoExtPrice = dattoOpt.licCost * CONSTANTS.DATTO_LIC_PRICE_MULT;
+  const dattoExtPrice = roundPrice(dattoOpt.licCost * CONSTANTS.DATTO_LIC_PRICE_MULT);
   const datto: LineItem = {
     label: `Datto LIC — ${dattoOpt.label}`,
     unit: dattoOpt.licCost === 0 ? 0 : 1,
@@ -234,9 +238,11 @@ export function calculatePricing(inputs: PricingInputs): PricingResult {
     const laborMonthly = laborByTier.get(plan.laborTier)!.monthlyCost;
     // Per-user cost = (managed tools + labor) spread across users.
     const perUserCost = inputs.users > 0 ? (toolsMonthly + laborMonthly) / inputs.users : 0;
-    const perUserPrice = perUserCost / (1 - CONSTANTS.TARGET_GROSS_MARGIN);
+    // Quoted prices round to whole dollars; MRR derives from the rounded
+    // per-user price so the card's "per user × users" stays consistent.
+    const perUserPrice = roundPrice(perUserCost / (1 - CONSTANTS.TARGET_GROSS_MARGIN));
     const mrrCost = perUserCost * inputs.users;
-    const mrrPrice = perUserPrice * inputs.users;
+    const mrrPrice = roundPrice(perUserPrice * inputs.users);
     const orrHaaS = plan.includeHaaS ? hardware.monthlyPrice : 0;
     const totalMonthly = o365.extPrice + mrrPrice + orrHaaS + datto.extPrice;
     return {

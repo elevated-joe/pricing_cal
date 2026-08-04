@@ -12,8 +12,11 @@ const usd0 = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
-/** Currency with cents, e.g. $1,123.61 */
-export const money = (n: number): string => usd.format(n);
+/**
+ * Currency. Whole amounts render without cents ($4,500) — prices are rounded to
+ * whole dollars — while fractional amounts (costs) keep cents ($1,571.84).
+ */
+export const money = (n: number): string => (Number.isInteger(n) ? usd0.format(n) : usd.format(n));
 
 /** Currency, whole dollars, e.g. $1,124 */
 export const money0 = (n: number): string => usd0.format(n);

@@ -47,6 +47,26 @@ describe("pricing engine — whole-unit invariants", () => {
       near(line.unit * line.unitCost, line.extCost);
     }
   });
+
+  it("every quoted price is a whole dollar amount", () => {
+    const prices = [
+      r.hardware.extPrice,
+      r.hardware.monthlyPrice,
+      ...r.hardware.lines.map((l) => l.extPrice),
+      r.orr.o365.extPrice,
+      r.orr.datto.extPrice,
+      ...r.plans.flatMap((p) => [
+        p.perUserPrice,
+        p.mrrPrice,
+        p.orrO365,
+        p.orrDatto,
+        p.orrHaaS,
+        p.setupFee,
+        p.totalMonthly,
+      ]),
+    ];
+    for (const price of prices) expect(Number.isInteger(price)).toBe(true);
+  });
 });
 
 describe("pricing engine — rounded baseline numbers", () => {
@@ -54,9 +74,9 @@ describe("pricing engine — rounded baseline numbers", () => {
 
   it("hardware totals", () => {
     near(r.hardware.extCost, 66941.68);
-    near(r.hardware.extPrice, 104874.0256);
+    expect(r.hardware.extPrice).toBe(104874); // sum of whole-dollar line prices
     near(r.hardware.monthlyCost, 1115.6946666666665);
-    near(r.hardware.monthlyPrice, 2097.480512);
+    expect(r.hardware.monthlyPrice).toBe(2097);
   });
 
   it("managed tools total", () => {
@@ -70,18 +90,19 @@ describe("pricing engine — rounded baseline numbers", () => {
     near(byKey.standardEnterprise, 715);
   });
 
-  it("plan totals", () => {
+  it("plan totals (whole dollars)", () => {
     const byKey = Object.fromEntries(r.plans.map((p) => [p.key, p]));
-    near(byKey.coManaged.totalMonthly, 3430.944444444444);
-    near(byKey.remote.totalMonthly, 3670.944444444444);
-    near(byKey.standard.totalMonthly, 4506.5);
-    near(byKey.enterprise.totalMonthly, 6603.980512); // includes HaaS
+    expect(byKey.coManaged.totalMonthly).toBe(3425);
+    expect(byKey.remote.totalMonthly).toBe(3675);
+    expect(byKey.standard.totalMonthly).toBe(4500);
+    expect(byKey.enterprise.totalMonthly).toBe(6597); // includes HaaS
   });
 
-  it("per-user price hits the 70% target margin", () => {
+  it("per-user price rounds to whole dollars near the 70% target margin", () => {
     const std = r.plans.find((p) => p.key === "standard")!;
-    near(std.perUserPrice, 180.26);
-    near((std.perUserPrice - std.perUserCost) / std.perUserPrice, 0.7);
+    expect(std.perUserPrice).toBe(180);
+    // rounding nudges the realized margin a hair off the 70% target
+    expect((std.perUserPrice - std.perUserCost) / std.perUserPrice).toBeCloseTo(0.7, 2);
   });
 
   it("only Enterprise bundles HaaS into recurring", () => {
@@ -108,9 +129,9 @@ describe("pricing engine — interactive behaviour", () => {
     for (const p of withSeats.plans) near(p.orrO365, 540);
   });
 
-  it("Datto selection prices at the licensing multiplier", () => {
+  it("Datto selection prices at the licensing multiplier (rounded)", () => {
     const withDatto = calculatePricing({ ...BASE, dattoOption: "4t" });
-    near(withDatto.orr.datto.extPrice, 581.9 * 1.42);
+    expect(withDatto.orr.datto.extPrice).toBe(Math.round(581.9 * 1.42)); // 826
   });
 
   it("scales with users (more users => higher MRR)", () => {
