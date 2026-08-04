@@ -6,7 +6,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [claude/sleepy-gates-aibysq]
+    branches: [main, claude/sleepy-gates-aibysq]
   workflow_dispatch:
 
 # Permissions required by actions/deploy-pages.
