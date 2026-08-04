@@ -29,7 +29,10 @@ export const PLAN_COLUMNS = [
 export interface ExportMeta {
   clientName: string;
   clientContact: string;
-  clientAddress: string;
+  /** Street line of the address (line 1). */
+  addressStreet: string;
+  /** City, State ZIP (line 2). */
+  addressCityStateZip: string;
   contactTitle: string;
   dateOfMeeting: string; // yyyy-mm-dd
   salesRep: string;
@@ -59,16 +62,77 @@ function setNodeText(node: Element, value: string): void {
   for (let i = 1; i < ts.length; i++) ts[i].textContent = "";
 }
 
-/** Replace {TAG} placeholders across all paragraphs using a tag→value map. */
+const XML_SPACE = "http://www.w3.org/XML/1998/namespace";
+
+/** Set a run's textual content, turning "\n" into real line breaks (w:br),
+ *  keeping the run's own formatting (rPr) — so an underlined/bold placeholder
+ *  run stays underlined/bold. */
+function setRunText(doc: Document, run: Element, text: string): void {
+  for (const child of Array.from(run.childNodes)) {
+    const name = (child as Element).localName;
+    if (name === "t" || name === "br") run.removeChild(child);
+  }
+  const lines = text.split("\n");
+  lines.forEach((line, i) => {
+    if (i > 0) run.appendChild(doc.createElementNS(W, "w:br"));
+    const t = doc.createElementNS(W, "w:t");
+    t.setAttributeNS(XML_SPACE, "xml:space", "preserve");
+    t.textContent = line;
+    run.appendChild(t);
+  });
+}
+
+/**
+ * Replace {TAG} placeholders at the RUN level. A placeholder value is written
+ * into the first run it spans (preserving that run's formatting) and the other
+ * spanning runs are cleared. This keeps the template's per-run bold/underline
+ * on the inserted value, and supports multi-line values via "\n".
+ */
 function replacePlaceholders(doc: Document, map: Record<string, string>): void {
   for (const p of els(doc, "p")) {
-    const text = textOf(p);
-    if (!text.includes("{")) continue;
-    const replaced = text.replace(/\{([^{}]+)\}/g, (whole, tag: string) => {
-      const key = tag.trim().toUpperCase();
-      return key in map ? map[key] : whole;
-    });
-    if (replaced !== text) setNodeText(p, replaced);
+    const runs = els(p, "r").filter((r) => els(r, "t").length > 0);
+    if (runs.length === 0) continue;
+
+    const texts = runs.map((r) => textOf(r));
+    const combined = texts.join("");
+    if (!combined.includes("{")) continue;
+
+    // char ranges per run
+    const ranges: Array<[number, number]> = [];
+    let acc = 0;
+    for (const t of texts) {
+      ranges.push([acc, acc + t.length]);
+      acc += t.length;
+    }
+
+    const matches: Array<{ start: number; end: number; value: string }> = [];
+    const re = /\{([^{}]+)\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(combined))) {
+      const key = m[1].trim().toUpperCase();
+      if (key in map) matches.push({ start: m.index, end: m.index + m[0].length, value: map[key] });
+    }
+    if (matches.length === 0) continue;
+
+    // Right-to-left so earlier ranges stay valid as we mutate.
+    for (let mi = matches.length - 1; mi >= 0; mi--) {
+      const { start, end, value } = matches[mi];
+      const spanning: number[] = [];
+      for (let i = 0; i < runs.length; i++) {
+        if (ranges[i][1] > start && ranges[i][0] < end) spanning.push(i);
+      }
+      const first = spanning[0];
+      const last = spanning[spanning.length - 1];
+      const prefix = texts[first].slice(0, start - ranges[first][0]);
+      const suffix = texts[last].slice(end - ranges[last][0]);
+      if (first === last) {
+        setRunText(doc, runs[first], prefix + value + suffix);
+      } else {
+        setRunText(doc, runs[first], prefix + value);
+        for (let i = first + 1; i < last; i++) setRunText(doc, runs[i], "");
+        setRunText(doc, runs[last], suffix);
+      }
+    }
   }
 }
 
@@ -103,6 +167,7 @@ function fillPricingTable(table: Element, plansByKey: Map<string, PlanResult>): 
     if (label.includes("pricing is based")) metric = "perUserPrice";
     else if (label.includes("monthly peace of mind")) metric = "mrrPrice";
     else if (label.includes("hardware as a service")) metric = "orrHaaS";
+    else if (label.includes("monthly total")) metric = "totalMonthly";
     else if (label.includes("setup fees")) metric = "totalMonthly";
     if (!metric) continue;
 
@@ -188,10 +253,12 @@ export async function generateSupportPlan(
   }
 
   // 2) Fill the remaining {TAG} placeholders (client info, users, date, rep).
+  // Address on two lines: street, then City, State ZIP.
+  const address = [meta.addressStreet, meta.addressCityStateZip].filter((s) => s.trim()).join("\n");
   replacePlaceholders(doc, {
     "CLIENT NAME": meta.clientName,
     "CLIENT CONTACT": meta.clientContact,
-    "CLIENT ADDRESS": meta.clientAddress,
+    "CLIENT ADDRESS": address,
     "CLIENT TITLE": meta.contactTitle,
     "DATE OF MEETING": formatDate(meta.dateOfMeeting),
     "SALES REP": meta.salesRep,

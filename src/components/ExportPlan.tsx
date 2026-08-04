@@ -19,7 +19,8 @@ export function ExportPlan({ plans, users, onClose }: Props) {
   const [meta, setMeta] = useState<ExportMeta>({
     clientName: "",
     clientContact: "",
-    clientAddress: "",
+    addressStreet: "",
+    addressCityStateZip: "",
     contactTitle: "",
     dateOfMeeting: "",
     salesRep: SALES_REPS[0],
@@ -94,8 +95,20 @@ export function ExportPlan({ plans, users, onClose }: Props) {
             />
           </label>
           <label className="field span2">
-            <span>Client Address</span>
-            <input value={meta.clientAddress} onChange={(e) => set({ clientAddress: e.target.value })} />
+            <span>Street Address</span>
+            <input
+              value={meta.addressStreet}
+              onChange={(e) => set({ addressStreet: e.target.value })}
+              placeholder="100 Main St"
+            />
+          </label>
+          <label className="field span2">
+            <span>City, State ZIP</span>
+            <input
+              value={meta.addressCityStateZip}
+              onChange={(e) => set({ addressCityStateZip: e.target.value })}
+              placeholder="Harrisburg, PA 17101"
+            />
           </label>
           <label className="field">
             <span>Sales Rep</span>
