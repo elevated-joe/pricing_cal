@@ -187,8 +187,16 @@ body {
 /* ---- Plan cards ---- */
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  /* Fixed two columns => a 2×2 tier grid: Co-Managed | Remote on top,
+     Standard | Enterprise on the bottom. Collapses to one column on mobile. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .plan-card {
