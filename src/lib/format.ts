@@ -25,6 +25,9 @@ export const money0 = (n: number): string => usd0.format(n);
 export const percent = (n: number | null): string =>
   n == null ? "—" : `${(n * 100).toFixed(1)}%`;
 
-/** Trim trailing zeros from unit counts, e.g. 31.25 -> "31.25", 8 -> "8" */
-export const qty = (n: number): string =>
-  Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
+/**
+ * Unit counts, rounded to a whole number for display, e.g. 4.6875 -> "5".
+ * The underlying value stays exact in the math (matching the spreadsheet,
+ * which shows a rounded unit but multiplies by the precise quantity).
+ */
+export const qty = (n: number): string => String(Math.round(n));

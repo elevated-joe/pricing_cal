@@ -39,7 +39,7 @@ export default function App() {
         <div>
           <h1>MSP Pricing Calculator</h1>
           <p className="tagline">
-            Enterprise HaaS managed-services model · {result.deviceCount} devices ·{" "}
+            Enterprise HaaS managed-services model · {Math.round(result.deviceCount)} devices ·{" "}
             {inputs.travelRequired ? "with travel" : "no travel"}
           </p>
         </div>

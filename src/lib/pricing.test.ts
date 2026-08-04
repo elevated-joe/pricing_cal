@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { calculatePricing, DEFAULT_INPUTS, type PricingInputs } from "./pricing";
+import { qty } from "./format";
 
 /**
- * Unit quantities are rounded to whole numbers (you can't buy a fraction of a
- * device or bill a fractional hour), so the engine intentionally diverges from
- * the raw spreadsheet's fractional cells. These tests lock in the rounded
- * model and its structural invariants.
+ * Rounding model (matches the source spreadsheet):
+ *  - Quantities & costs stay EXACT in the math; units are only rounded for
+ *    display (see `qty`). The sheet shows "5" support units but multiplies by
+ *    the precise 4.6875.
+ *  - Quoted PRICES round to whole dollars, built from rounded parts so totals
+ *    stay consistent.
  *
  * Baseline scenario mirrors the spreadsheet inputs (25 users, 1 location, no
  * travel, 1.25 devices/user) with O365 = 0 seats and no Datto.
@@ -29,20 +32,20 @@ const allLines = (r: ReturnType<typeof calculatePricing>) => [
   r.orr.datto,
 ];
 
-describe("pricing engine — whole-unit invariants", () => {
+describe("pricing engine — rounding invariants", () => {
   const r = calculatePricing({ ...DEFAULT_INPUTS, deviceMultiplier: 1.25 });
 
-  it("every displayed unit is a whole number", () => {
+  it("every unit renders as a whole number (display-only rounding)", () => {
     for (const line of allLines(r)) {
-      expect(Number.isInteger(line.unit), `${line.label} unit=${line.unit}`).toBe(true);
+      expect(qty(line.unit), `${line.label}`).not.toContain(".");
     }
   });
 
-  it("device driver is rounded (25 × 1.25 = 31.25 → 31)", () => {
-    expect(r.deviceCount).toBe(31);
+  it("device driver stays exact (25 × 1.25 = 31.25)", () => {
+    expect(r.deviceCount).toBe(31.25);
   });
 
-  it("unit × cost equals ext cost on hardware and tool lines", () => {
+  it("exact unit × cost equals ext cost on hardware and tool lines", () => {
     for (const line of [...r.hardware.lines, ...r.tools.lines]) {
       near(line.unit * line.unitCost, line.extCost);
     }
@@ -69,39 +72,51 @@ describe("pricing engine — whole-unit invariants", () => {
   });
 });
 
-describe("pricing engine — rounded baseline numbers", () => {
+describe("pricing engine — spreadsheet parity (costs)", () => {
   const r = calculatePricing(BASE);
 
-  it("hardware totals", () => {
-    near(r.hardware.extCost, 66941.68);
-    expect(r.hardware.extPrice).toBe(104874); // sum of whole-dollar line prices
-    near(r.hardware.monthlyCost, 1115.6946666666665);
-    expect(r.hardware.monthlyPrice).toBe(2097);
+  it("Co-Managed Support uses the exact quantity, not the rounded display", () => {
+    const support = r.labor
+      .find((t) => t.key === "coManaged")!
+      .lines.find((l) => l.label.includes("Support"))!;
+    expect(qty(support.unit)).toBe("5"); // shown rounded
+    near(support.unit, 4.6875); // computed exact
+    near(support.extCost, 173.4375); // 4.6875 × $37
   });
 
-  it("managed tools total", () => {
-    near(r.tools.extCost, 636.95);
+  it("hardware and tool costs match the spreadsheet", () => {
+    near(r.hardware.extCost, 67416.5875); // D15
+    near(r.hardware.monthlyCost, 1123.6097916666665); // D16
+    near(r.tools.extCost, 638.75); // D34
   });
 
-  it("labor tier totals (no travel)", () => {
+  it("labor tier totals match the spreadsheet (no travel)", () => {
     const byKey = Object.fromEntries(r.labor.map((t) => [t.key, t.monthlyCost]));
-    near(byKey.coManaged, 392.3333333333333);
-    near(byKey.remote, 464.3333333333333);
-    near(byKey.standardEnterprise, 715);
+    near(byKey.coManaged, 380.7708333333334); // E40
+    near(byKey.remote, 478.2083333333334); // E44
+    near(byKey.standardEnterprise, 728.875); // E48
+  });
+});
+
+describe("pricing engine — whole-dollar prices", () => {
+  const r = calculatePricing(BASE);
+
+  it("hardware prices", () => {
+    expect(r.hardware.extPrice).toBe(105615); // sum of whole-dollar line prices
+    expect(r.hardware.monthlyPrice).toBe(2112);
   });
 
-  it("plan totals (whole dollars)", () => {
+  it("plan totals", () => {
     const byKey = Object.fromEntries(r.plans.map((p) => [p.key, p]));
-    expect(byKey.coManaged.totalMonthly).toBe(3425);
-    expect(byKey.remote.totalMonthly).toBe(3675);
-    expect(byKey.standard.totalMonthly).toBe(4500);
-    expect(byKey.enterprise.totalMonthly).toBe(6597); // includes HaaS
+    expect(byKey.coManaged.totalMonthly).toBe(3400);
+    expect(byKey.remote.totalMonthly).toBe(3725);
+    expect(byKey.standard.totalMonthly).toBe(4550);
+    expect(byKey.enterprise.totalMonthly).toBe(6662); // includes HaaS
   });
 
-  it("per-user price rounds to whole dollars near the 70% target margin", () => {
+  it("per-user price rounds near the 70% target margin", () => {
     const std = r.plans.find((p) => p.key === "standard")!;
-    expect(std.perUserPrice).toBe(180);
-    // rounding nudges the realized margin a hair off the 70% target
+    expect(std.perUserPrice).toBe(182);
     expect((std.perUserPrice - std.perUserCost) / std.perUserPrice).toBeCloseTo(0.7, 2);
   });
 
@@ -125,8 +140,8 @@ describe("pricing engine — interactive behaviour", () => {
 
   it("O365 seats flow into every plan's recurring price", () => {
     const withSeats = calculatePricing({ ...BASE, o365Seats: 25 });
-    near(withSeats.orr.o365.extPrice, 18 * 25 * 1.2); // 540
-    for (const p of withSeats.plans) near(p.orrO365, 540);
+    expect(withSeats.orr.o365.extPrice).toBe(540); // 18 × 25 × 1.2
+    for (const p of withSeats.plans) expect(p.orrO365).toBe(540);
   });
 
   it("Datto selection prices at the licensing multiplier (rounded)", () => {
@@ -142,9 +157,9 @@ describe("pricing engine — interactive behaviour", () => {
     expect(b).toBeGreaterThan(s);
   });
 
-  it("keeps units whole even with an odd device multiplier", () => {
+  it("units still render whole with an odd device multiplier", () => {
     const r = calculatePricing({ ...DEFAULT_INPUTS, deviceMultiplier: 1.33, o365Seats: 7 });
-    for (const line of allLines(r)) expect(Number.isInteger(line.unit)).toBe(true);
+    for (const line of allLines(r)) expect(qty(line.unit)).not.toContain(".");
   });
 
   it("handles zero users without dividing by zero", () => {

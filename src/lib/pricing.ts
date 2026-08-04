@@ -106,18 +106,20 @@ export interface PricingResult {
 const gm = (extCost: number, extPrice: number): number | null =>
   extPrice === 0 ? null : (extPrice - extCost) / extPrice;
 
-/** Quantities are always whole units — you can't buy a fraction of a device or bill a fractional hour. */
-const roundUnit = (n: number): number => Math.round(n);
-
-/** Quoted prices are rounded to the nearest whole dollar. Costs stay exact. */
+/**
+ * Quoted prices are rounded to the nearest whole dollar. Quantities and costs
+ * stay exact — units are only rounded for display (see `qty` in format.ts),
+ * matching the source spreadsheet, which shows e.g. "5" support units but
+ * multiplies by the exact 4.6875.
+ */
 const roundPrice = (n: number): number => Math.round(n);
 
 function hardwareUnitCount(item: HardwareItem, deviceCount: number, locations: number): number {
   switch (item.unit.base) {
     case "locations":
-      return roundUnit(locations * (item.unit.factor ?? 1));
+      return locations * (item.unit.factor ?? 1);
     case "devices":
-      return roundUnit(deviceCount * (item.unit.factor ?? 1));
+      return deviceCount * (item.unit.factor ?? 1);
     case "fixed":
       return item.unit.value;
   }
@@ -159,7 +161,6 @@ function computeTools(inputs: PricingInputs, deviceCount: number): Section {
         unit = item.unit.value;
         break;
     }
-    unit = roundUnit(unit);
     const extCost = item.cost * unit;
     // Tools are internal cost inputs; price is set later via target margin.
     return { label: item.label, unit, unitCost: item.cost, extCost, extPrice: extCost, gm: null };
@@ -169,8 +170,7 @@ function computeTools(inputs: PricingInputs, deviceCount: number): Section {
 }
 
 function laborLineMonthly(item: LaborItem, deviceCount: number): LineItem {
-  const rawHours = typeof item.hours === "number" ? item.hours : deviceCount * item.hours.factor;
-  const hours = roundUnit(rawHours);
+  const hours = typeof item.hours === "number" ? item.hours : deviceCount * item.hours.factor;
   const monthly = item.alreadyMonthly ? item.rate * hours : (item.rate * hours) / 12;
   return {
     label: item.label,
@@ -200,15 +200,15 @@ function sum(xs: number[]): number {
 }
 
 export function calculatePricing(inputs: PricingInputs): PricingResult {
-  // Whole devices only — round the driver once so every derived unit is whole too.
-  const deviceCount = roundUnit(inputs.users * inputs.deviceMultiplier);
+  // Exact device count (users × multiplier). Rounded only for display.
+  const deviceCount = inputs.users * inputs.deviceMultiplier;
 
   const hardware = computeHardware(deviceCount, inputs.locations);
   const tools = computeTools(inputs, deviceCount);
   const labor = computeLabor(inputs.travelRequired, deviceCount);
 
   // --- ORR: O365 + Datto ---
-  const o365Seats = roundUnit(inputs.o365Seats);
+  const o365Seats = inputs.o365Seats;
   const o365ExtCost = O365_SEAT_COST * o365Seats;
   const o365ExtPrice = roundPrice(o365ExtCost * CONSTANTS.O365_PRICE_MULT);
   const o365: LineItem = {
