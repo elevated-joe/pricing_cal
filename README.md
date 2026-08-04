@@ -44,6 +44,25 @@ npm run build      # type-check + production build
 npm test           # run the engine parity tests
 ```
 
+## Deploy to GitHub Pages
+
+The app ships with a workflow ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))
+that builds and publishes to GitHub Pages on every push to the default branch.
+Assets use relative paths, so it works from the project subpath
+(`https://elevated-joe.github.io/pricing_cal/`).
+
+**One-time setup** (in the repo on GitHub):
+
+1. Go to **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **GitHub Actions**.
+
+That's it. The next push (or a manual **Actions → Deploy to GitHub Pages → Run
+workflow**) builds and deploys. The live URL appears in the workflow run's
+`deploy` step and under Settings → Pages.
+
+> No server is involved — it's a fully static bundle, so it runs entirely from
+> GitHub Pages.
+
 ## Project layout
 
 ```
