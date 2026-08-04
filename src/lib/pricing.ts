@@ -31,6 +31,12 @@ export interface PricingInputs {
   o365Seats: number;
   /** Selected Datto backup option key (see DATTO_OPTIONS). */
   dattoOption: string;
+  /**
+   * Manual unit overrides for HaaS hardware lines, keyed by hardware item key
+   * (see HARDWARE in catalog.ts). When a key is present, its value replaces the
+   * computed default unit count for that line. Absent keys use the default.
+   */
+  hardwareUnitOverrides: Record<string, number>;
 }
 
 export const DEFAULT_INPUTS: PricingInputs = {
@@ -40,6 +46,7 @@ export const DEFAULT_INPUTS: PricingInputs = {
   deviceMultiplier: 1.25,
   o365Seats: 0,
   dattoOption: "none",
+  hardwareUnitOverrides: {},
 };
 
 export interface LineItem {
@@ -50,6 +57,12 @@ export interface LineItem {
   extPrice: number;
   /** Gross margin on this line (0..1), or null when price is 0. */
   gm: number | null;
+  /** Stable id for editable lines (hardware); enables manual unit overrides. */
+  key?: string;
+  /** The computed default unit before any manual override. */
+  defaultUnit?: number;
+  /** True when `unit` came from a manual override rather than the default. */
+  isOverridden?: boolean;
 }
 
 export interface Section {
@@ -125,16 +138,33 @@ function hardwareUnitCount(item: HardwareItem, deviceCount: number, locations: n
   }
 }
 
-function computeHardware(deviceCount: number, locations: number): HaaSResult {
+function computeHardware(
+  deviceCount: number,
+  locations: number,
+  overrides: Record<string, number>,
+): HaaSResult {
   const lines: LineItem[] = HARDWARE.map((item) => {
-    const unit = hardwareUnitCount(item, deviceCount, locations);
+    const defaultUnit = hardwareUnitCount(item, deviceCount, locations);
+    const override = overrides[item.key];
+    const isOverridden = typeof override === "number" && Number.isFinite(override);
+    const unit = isOverridden ? override : defaultUnit;
     const extCost = item.cost * unit;
     const extPrice = roundPrice(
       item.priceRule === "lab"
         ? unit * CONSTANTS.LAB_UNIT_PRICE
         : extCost * CONSTANTS.HARDWARE_PRICE_MULT,
     );
-    return { label: item.label, unit, unitCost: item.cost, extCost, extPrice, gm: gm(extCost, extPrice) };
+    return {
+      label: item.label,
+      unit,
+      unitCost: item.cost,
+      extCost,
+      extPrice,
+      gm: gm(extCost, extPrice),
+      key: item.key,
+      defaultUnit,
+      isOverridden,
+    };
   });
   const extCost = sum(lines.map((l) => l.extCost));
   const extPrice = sum(lines.map((l) => l.extPrice));
@@ -203,7 +233,7 @@ export function calculatePricing(inputs: PricingInputs): PricingResult {
   // Exact device count (users × multiplier). Rounded only for display.
   const deviceCount = inputs.users * inputs.deviceMultiplier;
 
-  const hardware = computeHardware(deviceCount, inputs.locations);
+  const hardware = computeHardware(deviceCount, inputs.locations, inputs.hardwareUnitOverrides);
   const tools = computeTools(inputs, deviceCount);
   const labor = computeLabor(inputs.travelRequired, deviceCount);
 

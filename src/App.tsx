@@ -34,6 +34,16 @@ export default function App() {
 
   const patch = (p: Partial<PricingInputs>) => setInputs((prev) => ({ ...prev, ...p }));
 
+  const setUnitOverride = (key: string, value: number | null) =>
+    setInputs((prev) => {
+      const next = { ...prev.hardwareUnitOverrides };
+      if (value == null) delete next[key];
+      else next[key] = value;
+      return { ...prev, hardwareUnitOverrides: next };
+    });
+
+  const overrideCount = Object.keys(inputs.hardwareUnitOverrides).length;
+
   return (
     <div className="app">
       <header className="app-header">
@@ -64,10 +74,14 @@ export default function App() {
               title="Hardware (HaaS)"
               subtitle={`Monthly: ${money(result.hardware.monthlyPrice)} · one-time ${money(
                 result.hardware.extPrice,
-              )}`}
+              )}${overrideCount ? ` · ${overrideCount} override${overrideCount > 1 ? "s" : ""}` : ""}`}
             >
+              <p className="section-hint">
+                Units are editable — override any default to match the actual quote, then ↺ to revert.
+              </p>
               <LineItemTable
                 lines={result.hardware.lines}
+                onUnitOverride={setUnitOverride}
                 footer={{
                   label: "Total",
                   extCost: result.hardware.extCost,

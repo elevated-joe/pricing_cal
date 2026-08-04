@@ -20,6 +20,7 @@ const BASE: PricingInputs = {
   deviceMultiplier: 1.25,
   o365Seats: 0,
   dattoOption: "none",
+  hardwareUnitOverrides: {},
 };
 
 const near = (a: number, b: number) => expect(a).toBeCloseTo(b, 4);
@@ -165,5 +166,34 @@ describe("pricing engine — interactive behaviour", () => {
   it("handles zero users without dividing by zero", () => {
     const r = calculatePricing({ ...DEFAULT_INPUTS, users: 0 });
     for (const p of r.plans) expect(Number.isFinite(p.totalMonthly)).toBe(true);
+  });
+});
+
+describe("pricing engine — HaaS unit overrides", () => {
+  it("lines expose their computed default and are not overridden by default", () => {
+    const r = calculatePricing(BASE);
+    const pc = r.hardware.lines.find((l) => l.key === "pc")!;
+    expect(pc.isOverridden).toBe(false);
+    near(pc.defaultUnit!, 31.25);
+    near(pc.unit, 31.25);
+  });
+
+  it("an override replaces the unit and recomputes cost/price", () => {
+    const base = calculatePricing(BASE);
+    const overridden = calculatePricing({ ...BASE, hardwareUnitOverrides: { pc: 40 } });
+    const pc = overridden.hardware.lines.find((l) => l.key === "pc")!;
+    expect(pc.isOverridden).toBe(true);
+    expect(pc.unit).toBe(40);
+    near(pc.extCost, 40 * 1571.84);
+    // total shifts by the delta in that line's ext cost
+    near(overridden.hardware.extCost - base.hardware.extCost, (40 - 31.25) * 1571.84);
+  });
+
+  it("an override of 0 zeroes the line", () => {
+    const r = calculatePricing({ ...BASE, hardwareUnitOverrides: { fw: 0 } });
+    const fw = r.hardware.lines.find((l) => l.key === "fw")!;
+    expect(fw.isOverridden).toBe(true);
+    expect(fw.unit).toBe(0);
+    expect(fw.extCost).toBe(0);
   });
 });
