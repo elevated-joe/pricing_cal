@@ -226,63 +226,34 @@ function removeColumns(table: Element, removeIdx: number[]): void {
   }
 }
 
-/** An empty ballot-box (☐) run, bold and slightly enlarged for print/PDF. */
-function checkboxRun(doc: Document): Element {
-  const r = doc.createElementNS(W, "w:r");
-  const rpr = doc.createElementNS(W, "w:rPr");
-  rpr.appendChild(doc.createElementNS(W, "w:b"));
-  for (const tag of ["w:sz", "w:szCs"]) {
-    const el = doc.createElementNS(W, tag);
-    el.setAttributeNS(W, "w:val", "28"); // 14pt
-    rpr.appendChild(el);
+/** Prepend an empty ballot box (☐) to a cell's first text run, keeping the
+ *  cell's own formatting so the box matches the header style. */
+function prependCheckbox(tc: Element): void {
+  const t = els(tc, "t")[0];
+  if (t && !(t.textContent ?? "").startsWith("☐")) {
+    t.textContent = `☐ ${t.textContent ?? ""}`;
   }
-  r.appendChild(rpr);
-  const t = doc.createElementNS(W, "w:t");
-  t.textContent = "☐"; // ☐ BALLOT BOX
-  r.appendChild(t);
-  return r;
-}
-
-/** Replace a cell's content with a single centered checkbox. */
-function setCellCheckbox(doc: Document, tc: Element): void {
-  const p = els(tc, "p")[0];
-  if (!p) return;
-  for (const r of els(p, "r")) if (r.parentNode === p) p.removeChild(r);
-  let pPr = els(p, "pPr")[0];
-  if (!pPr) {
-    pPr = doc.createElementNS(W, "w:pPr");
-    p.insertBefore(pPr, p.firstChild);
-  }
-  if (!els(pPr, "jc")[0]) {
-    const jc = doc.createElementNS(W, "w:jc");
-    jc.setAttributeNS(W, "w:val", "center");
-    pPr.appendChild(jc);
-  }
-  p.appendChild(checkboxRun(doc));
 }
 
 /**
- * Add selection checkboxes for the PDF: one under each plan column in the
- * pricing table's "Initial Plan selection" row, and one on the "TIME AND
- * MATERIALS" header — so the recipient can tick a POM plan or T&M.
- * Runs before column removal so dropped plans lose their checkbox too.
+ * Add the two top-level selection checkboxes for the PDF, so the recipient can
+ * tick one: "☐ PEACE OF MIND" on the pricing table header and "☐ TIME AND
+ * MATERIALS" on the T&M header. The pricing table is the plan table that has
+ * an "Initial Plan selection" row.
  */
 function addSelectionCheckboxes(doc: Document): void {
   for (const table of els(doc, "tbl")) {
     if (isPlanTable(table)) {
-      for (const row of els(table, "tr")) {
-        const cells = rowCells(row);
-        if (cells.length >= 5 && textOf(cells[0]).toLowerCase().includes("initial plan selection")) {
-          for (let i = 1; i <= 4; i++) setCellCheckbox(doc, cells[i]);
-        }
-      }
+      const rows = els(table, "tr");
+      const isPricing = rows.some((r) => {
+        const c0 = rowCells(r)[0];
+        return c0 && textOf(c0).toLowerCase().includes("initial plan selection");
+      });
+      if (isPricing) prependCheckbox(rowCells(rows[0])[0]); // "☐ PEACE OF MIND"
     } else {
       const first = els(table, "tc")[0];
       if (first && textOf(first).trim().toUpperCase().startsWith("TIME AND MATERIALS")) {
-        const t = els(first, "t")[0];
-        if (t && !(t.textContent ?? "").startsWith("☐")) {
-          t.textContent = `☐ ${t.textContent ?? ""}`;
-        }
+        prependCheckbox(first); // "☐ TIME AND MATERIALS"
       }
     }
   }
